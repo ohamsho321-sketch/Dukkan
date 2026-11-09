@@ -8,13 +8,13 @@
 
 الموقع العام: [elomami1976.github.io/Dukkan](https://elomami1976.github.io/Dukkan/)
 
-أحدث إصدار: [تنزيل Dukkan-Setup-1.1.0.exe](https://github.com/Elomami1976/Dukkan/releases/download/v1.1.0/Dukkan-Setup-1.1.0.exe) · [Release v1.1.0](https://github.com/Elomami1976/Dukkan/releases/tag/v1.1.0)
+أحدث إصدار: [تنزيل Dukkan من صفحة الإصدار](https://github.com/Elomami1976/Dukkan/releases/tag/v1.2.0) · [Release v1.2.0](https://github.com/Elomami1976/Dukkan/releases/tag/v1.2.0)
 
 مصدر الموقع موجود في [`docs/`](docs/)، ويتم نشره عبر GitHub Pages من فرع `main`. زر التنزيل في الموقع يتحقق من وجود Windows Installer رسمي قبل تفعيله.
 
 ## حالة المشروع
 
-الإصدار `v1.1.0` هو الإصدار الحالي لمستخدمي Windows. يُبنى Windows Installer بصيغة NSIS ويُختبر تثبيته وتشغيله على بيئة Windows نظيفة قبل النشر.
+الإصدار `v1.2.0` هو الإصدار الحالي لمستخدمي Windows. يُبنى Windows Installer بصيغة NSIS ويُختبر تثبيته وتشغيله على بيئة Windows نظيفة قبل النشر.
 
 ## For Users
 
@@ -98,7 +98,11 @@ npm run tauri build
 
 إعداد وتطوير المشروع: **طارق العمامي**  
 Tarek Elomami
-الإصدار الحالي: **1.1.0**
+الإصدار الحالي: **1.2.0**
+
+## حماية الإصدار 1.2.0
+
+تتعامل نسخة سطح المكتب مع الواجهة كمدخل غير موثوق: كل حفظ حساس يمر عبر جلسة Tauri أصلية، وتعيد طبقة Rust التحقق من الأسعار والكميات والخصومات والمخزون والصلاحيات. أضيف أيضًا قفل مؤقت لمحاولات الدخول المتكررة وتشديد لإعدادات SQLite. راجع [تفاصيل تطبيق الحماية](docs/SECURITY_IMPLEMENTATION.md) و[ملاحظات الإصدار](docs/RELEASE_NOTES_v1.2.0.md).
 
 ## لوحة النشاط الجديدة — تحديث 1.1.0
 

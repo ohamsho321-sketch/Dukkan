@@ -1,9 +1,39 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Dukkan",
-  "version": "1.1.0",
-  "identifier": "ly.dukkan.business",
-  "build": { "beforeDevCommand": "npm run dev", "beforeBuildCommand": "npm run build", "devUrl": "http://localhost:1420", "frontendDist": "../dist" },
-  "app": { "windows": [{ "title": "Dukkan — إدارة الأعمال", "width": 1440, "height": 900, "minWidth": 1024, "minHeight": 700, "resizable": true }], "security": { "csp": "default-src 'self'; img-src 'self' asset: data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'" } },
-  "bundle": { "active": true, "targets": ["nsis"], "icon": ["icons/icon.ico", "icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.png"], "publisher": "طارق العمامي", "shortDescription": "نظام إدارة الأعمال المحلي", "longDescription": "نظام عربي لإدارة المبيعات والمخزون والمشتريات دون إنترنت.", "windows": { "nsis": { "installMode": "currentUser", "displayLanguageSelector": true } } }
+  "productName": "سوق الضنية المركزي",
+  "version": "1.2.0",
+  "identifier": "com.soukdannyeh.pos",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build",
+    "devUrl": "http://localhost:1420",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [{
+      "title": "سوق الضنية المركزي — الكاشير والمحاسبة",
+      "width": 1440,
+      "height": 900,
+      "minWidth": 1024,
+      "minHeight": 700,
+      "resizable": true
+    }],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' asset: data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "icon": ["icons/icon.ico", "icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.png"],
+    "publisher": "سوق الضنية المركزي",
+    "shortDescription": "كاشير ومحاسبة ومخزون محلي",
+    "longDescription": "برنامج عربي للمبيعات والمخزون والمشتريات والموردين والمصاريف والتقارير، يعمل محلياً دون إنترنت.",
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "displayLanguageSelector": false
+      }
+    }
+  }
 }

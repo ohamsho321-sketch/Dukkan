@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Business, Product, Customer, Sale, SaleLine, AppUser, Purchase, Payment, InventoryBatch, BatchAllocation, FiscalYear } from './types'
+import type { Business, Product, Customer, Sale, SaleLine, SaleReturn, AppUser, Purchase, Payment, InventoryBatch, BatchAllocation, FiscalYear } from './types'
 import { emptyData, validateData, businessData, parseBackup, todayKey, type Data } from './lib/data'
 import { credentials, verifyPassword } from './lib/auth'
 
@@ -35,6 +35,7 @@ type State = Data & {
   addCustomer: (person: PersonInput) => Promise<void>; addSupplier: (person: PersonInput) => Promise<void>
   addExpense: (expense: { category: string; note: string; amount: number; date?: string }) => Promise<void>
   completeSale: (cart: { productId: string; qty: number }[], paid: number, customerId: string, method: string, discount: number) => Promise<Sale>
+  returnSale: (saleId: string, items: { productId: string; qty: number }[], reason: string) => Promise<SaleReturn>
   completePurchase: (supplierId: string, cart: PurchaseInput[], paid: number, date: string, note: string) => Promise<Purchase>
   recordPayment: (kind: Payment['kind'], partyId: string, amount: number, note: string) => Promise<void>
   updateBusiness: (business: Partial<Business>) => Promise<void>
@@ -114,9 +115,15 @@ export const useAppStore = create<State>()((set, get) => {
     },
     login: async (username, password) => {
       const user = get().users.find(u => u.username.toLowerCase() === username.trim().toLowerCase() && u.active)
-      if (!user || !await verifyPassword(user, password)) throw new Error('اسم المستخدم أو كلمة المرور غير صحيحة')
+      if (tauriRuntime()) {
+        try { await authenticateDashboard(username, password) }
+        catch (error) { throw new Error(error instanceof Error ? error.message : String(error)) }
+      } else if (!user || !await verifyPassword(user, password)) throw new Error('اسم المستخدم أو كلمة المرور غير صحيحة')
+      if (!user) {
+        if (tauriRuntime()) { const { invoke } = await tauriApi(); await invoke('dashboard_logout') }
+        throw new Error('بيانات الحساب المحلية قديمة. أعد تشغيل التطبيق')
+      }
       if (!get().users.some(u => u.id === user.id && u.active && u.hash === user.hash)) throw new Error('الحساب غير متاح')
-      await authenticateDashboard(username, password)
       set({ sessionId: user.id, activeUser: user.name })
     },
     logout: () => { set({ sessionId: null }); if (tauriRuntime()) void tauriApi().then(({ invoke }) => invoke('dashboard_logout')).catch(() => { /* No dashboard is rendered after logout. */ }) },
@@ -212,6 +219,70 @@ export const useAppStore = create<State>()((set, get) => {
       await commit({ sales: [sale, ...state.sales], products, batches, movements, customers: state.customers.map(c => c.id === customerId ? { ...c, balance: amount(c.balance + total - appliedPaid), purchases: amount(c.purchases + total), lastPurchase: date } : c) })
       return sale
     },
+    returnSale: async (saleId, items, reason) => {
+      const user = access(true), state = get(), sale = state.sales.find(s => s.id === saleId)
+      if (!sale?.lines?.length) throw new Error('لا يمكن إرجاع فاتورة قديمة بلا تفاصيل أصناف')
+      reason = required(reason)
+      if (!items.length || new Set(items.map(item => item.productId)).size !== items.length) throw new Error('اختر صنفاً واحداً على الأقل للإرجاع')
+      const previous = state.saleReturns.filter(r => r.saleId === saleId)
+      const returnedQty = (productId: string) => previous.flatMap(r => r.lines).filter(l => l.productId === productId).reduce((n, l) => n + l.qty, 0)
+      const returnedBatchQty = (batchId: string) => previous.flatMap(r => r.lines).flatMap(l => l.batchAllocations || []).filter(a => a.batchId === batchId).reduce((n, a) => n + a.quantity, 0)
+      const lines: SaleLine[] = items.map(item => {
+        const original = sale.lines!.find(line => line.productId === item.productId)
+        if (!original || !Number.isSafeInteger(item.qty) || item.qty <= 0 || item.qty > original.qty - returnedQty(item.productId)) throw new Error('كمية المرتجع غير صالحة أو تتجاوز الكمية المباعة')
+        let batchAllocations: BatchAllocation[] | undefined
+        if (original.batchAllocations?.length) {
+          let remaining = item.qty
+          batchAllocations = []
+          for (const allocation of original.batchAllocations) {
+            const available = allocation.quantity - returnedBatchQty(allocation.batchId)
+            const quantity = Math.min(remaining, available)
+            if (quantity > 0) batchAllocations.push({ ...allocation, quantity })
+            remaining -= quantity
+            if (!remaining) break
+          }
+          if (remaining) throw new Error('تعذر مطابقة المرتجع مع دفعات الفاتورة الأصلية')
+        }
+        return { ...original, qty: item.qty, ...(batchAllocations ? { batchAllocations } : {}) }
+      })
+      const saleGross = sale.lines.reduce((n, line) => n + line.price * line.qty, 0)
+      const previousGross = previous.flatMap(r => r.lines).reduce((n, line) => n + line.price * line.qty, 0)
+      const returnedGross = lines.reduce((n, line) => n + line.price * line.qty, 0)
+      const previousNet = previous.reduce((n, r) => n + r.total, 0)
+      const cumulativeGross = previousGross + returnedGross
+      const cumulativeNet = cumulativeGross === saleGross ? sale.total : Number(BigInt(sale.total) * BigInt(cumulativeGross) / BigInt(saleGross))
+      const total = amount(cumulativeNet - previousNet)
+      const customer = sale.customerId ? state.customers.find(c => c.id === sale.customerId) : undefined
+      const creditApplied = customer ? Math.min(customer.balance, total) : 0
+      const cashRefund = total - creditApplied
+      const date = now(), fiscalYearId = fiscalFor(date).id
+      const returned: SaleReturn = { id: id('SRET'), saleId, ...(sale.customerId ? { customerId: sale.customerId } : {}), total, creditApplied, cashRefund, lines, reason, userId: user.id, userName: user.name, date, fiscalYearId }
+      const quantities = new Map(lines.map(line => [line.productId, line.qty]))
+      const movements = [...state.movements]
+      const products = state.products.map(product => {
+        const quantity = quantities.get(product.id)
+        if (!quantity || !product.trackInventory) return product
+        const balance = amount(product.stock + quantity)
+        const returnedLine = lines.find(line => line.productId === product.id)!
+        if (returnedLine.batchAllocations?.length) {
+          let running = product.stock
+          for (const allocation of returnedLine.batchAllocations) {
+            running += allocation.quantity
+            movements.unshift({ id: id('MOV'), productId: product.id, name: product.name, amount: allocation.quantity, date, reason: returned.id, balance: running, batchId: allocation.batchId, type: 'sale_return' })
+          }
+        } else movements.unshift({ id: id('MOV'), productId: product.id, name: product.name, amount: quantity, date, reason: returned.id, balance, type: 'sale_return' })
+        return { ...product, stock: balance }
+      })
+      const batches = state.batches.map(batch => {
+        const allocation = lines.flatMap(line => line.batchAllocations || []).find(a => a.batchId === batch.id)
+        return allocation ? { ...batch, quantity: amount(batch.quantity + allocation.quantity) } : batch
+      })
+      await commit({
+        saleReturns: [returned, ...state.saleReturns], products, batches, movements,
+        customers: state.customers.map(c => c.id === sale.customerId ? { ...c, balance: c.balance - creditApplied, purchases: Math.max(0, c.purchases - total), lastPurchase: date } : c),
+      })
+      return returned
+    },
     completePurchase: async (supplierId, cart, paid, date, note) => {
       access(true); const state = get(), supplier = state.suppliers.find(s => s.id === supplierId)
       if (!supplier || !cart.length) throw new Error('اختر المورد وأضف الأصناف')
@@ -278,10 +349,11 @@ export const useAppStore = create<State>()((set, get) => {
       if (!state.lastBackup) throw new Error('أنشئ نسخة احتياطية قبل إقفال السنة')
       const inYear = (date: string) => { const key = date.slice(0, 10); return key >= year.startDate && key <= year.endDate }
       const salesRows = state.sales.filter(x => x.fiscalYearId === year.id || (!x.fiscalYearId && inYear(x.date)))
+      const returnRows = state.saleReturns.filter(x => x.fiscalYearId === year.id || (!x.fiscalYearId && inYear(x.date)))
       const expenses = state.expenses.filter(x => x.fiscalYearId === year.id || (!x.fiscalYearId && inYear(x.date))).reduce((n, x) => n + x.amount, 0)
       const losses = state.inventoryLosses.filter(x => inYear(x.date)).reduce((n, x) => n + x.totalCost, 0)
-      const sales = salesRows.reduce((n, x) => n + x.total, 0)
-      const costOfGoods = salesRows.reduce((n, x) => n + (x.lines || []).reduce((a, l) => a + l.qty * l.cost, 0), 0)
+      const sales = salesRows.reduce((n, x) => n + x.total, 0) - returnRows.reduce((n, x) => n + x.total, 0)
+      const costOfGoods = salesRows.reduce((n, x) => n + (x.lines || []).reduce((a, l) => a + l.qty * l.cost, 0), 0) - returnRows.reduce((n, x) => n + x.lines.reduce((a, l) => a + l.qty * l.cost, 0), 0)
       const summary = { sales, costOfGoods, expenses, inventoryLosses: losses, estimatedProfit: sales - costOfGoods - expenses - losses, inventoryValue: state.products.reduce((n, p) => n + p.stock * p.cost, 0), receivables: state.customers.reduce((n, p) => n + p.balance, 0), payables: state.suppliers.reduce((n, p) => n + Math.max(0, p.balance), 0) }
       const start = new Date(`${year.endDate}T00:00:00Z`); start.setUTCDate(start.getUTCDate() + 1)
       const end = new Date(start); end.setUTCFullYear(end.getUTCFullYear() + 1); end.setUTCDate(end.getUTCDate() - 1)
@@ -337,7 +409,7 @@ export const useAppStore = create<State>()((set, get) => {
       })
     },
     restoreBackup: async text => { access(true); const restored = parseBackup(text); await commit({ ...restored, setupComplete: true, users: get().users, activeUser: get().activeUser }) },
-    backup: () => { access(true); const { users: _users, ...data } = snapshot(); return JSON.stringify({ format: 'Dukkan Backup', version: 5, exportedAt: now(), data }, null, 2) },
+    backup: () => { access(true); const { users: _users, ...data } = snapshot(); return JSON.stringify({ format: 'Souk Al Dannyeh Backup', version: 6, exportedAt: now(), data }, null, 2) },
     markBackup: async () => { access(true); await commit({ lastBackup: now() }) },
   }
 })
@@ -355,6 +427,9 @@ export async function initializeDesktopPersistence(): Promise<void> {
       storageRevision = stored.revision
       localStorage.setItem(storageKey, JSON.stringify({ state: data, version: 1, revision: storageRevision }))
       useAppStore.setState({ ...data, sessionId: null, loadError: '' })
+    } else if (!stored && !current.setupComplete && !current.users.length) {
+      // Keep a fresh database empty until setup creates the first administrator.
+      return
     } else if (!stored || storageRevision > stored.revision) {
       await invoke('save_app_state', { expectedRevision: stored?.revision ?? -1, revision: storageRevision, stateJson: JSON.stringify(current) })
     }

@@ -1,5 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    dukkan_lib::run();
+    souk_al_dannyeh_lib::run();
 }

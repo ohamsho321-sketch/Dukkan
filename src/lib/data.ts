@@ -1,15 +1,15 @@
-import type { Business, Product, Customer, Supplier, Sale, Expense, Purchase, StockMovement, Payment, AppUser, InventoryBatch, BatchAllocation, InventoryLoss, SupplierReturn, AuditEvent, FiscalYear } from '../types'
+import type { Business, Product, Customer, Supplier, Sale, SaleReturn, Expense, Purchase, StockMovement, Payment, AppUser, InventoryBatch, BatchAllocation, InventoryLoss, SupplierReturn, AuditEvent, FiscalYear } from '../types'
 
 export type Data = {
   setupComplete: boolean; business: Business; products: Product[]; customers: Customer[]; suppliers: Supplier[]
-  sales: Sale[]; expenses: Expense[]; categories: string[]; activeUser: string
+  sales: Sale[]; saleReturns: SaleReturn[]; expenses: Expense[]; categories: string[]; activeUser: string
   purchases: Purchase[]; movements: StockMovement[]; batches: InventoryBatch[]; inventoryLosses: InventoryLoss[]; supplierReturns: SupplierReturn[]; auditEvents: AuditEvent[]; payments: Payment[]; users: AppUser[]; fiscalYears: FiscalYear[]; lastBackup: string
 }
 export const emptyData: Data = {
   setupComplete: false,
-  business: { name: '', type: 'متجر تجزئة', phone: '', address: '', taxNumber: '', logo: '', primaryColor: '#2563eb', currency: 'الدينار الليبي' },
-  products: [], customers: [], suppliers: [], sales: [], expenses: [], purchases: [], movements: [], batches: [], inventoryLosses: [], supplierReturns: [], auditEvents: [], payments: [], users: [], fiscalYears: [],
-  categories: ['مواد غذائية', 'مشروبات', 'منزلية', 'خدمات', 'أخرى'], activeUser: '', lastBackup: '',
+  business: { name: 'سوق الضنية المركزي', type: 'متجر جملة وتجزئة', phone: '', address: 'الضنية، لبنان', taxNumber: '', logo: '', primaryColor: '#15803d', currency: 'USD' },
+  products: [], customers: [], suppliers: [], sales: [], saleReturns: [], expenses: [], purchases: [], movements: [], batches: [], inventoryLosses: [], supplierReturns: [], auditEvents: [], payments: [], users: [], fiscalYears: [],
+  categories: ['أدوات منزلية', 'أدوات كهربائية صغيرة', 'قرطاسية ومكتبة', 'ألعاب', 'مواد تنظيف', 'عناية شخصية', 'قطنيات', 'موسمية', 'أخرى'], activeUser: '', lastBackup: '',
 }
 function invalid(): never { throw new Error('بيانات غير صالحة: لم يتم استبدال السجلات الحالية') }
 function obj(value: unknown): Record<string, unknown> {
@@ -63,9 +63,10 @@ export function validateData(value: unknown, includeUsers = true): Data {
       if (lines && (lines.length === 0 || lines.reduce((n, l) => n + l.price * l.qty, 0) - discount !== total || lines.reduce((n, l) => n + l.qty, 0) !== num(s.items) || paid > total)) return invalid()
       return { id: str(s.id), customer: str(s.customer), total, paid, date: str(s.date), cashier: str(s.cashier), items: num(s.items), status: s.status as Sale['status'], ...(lines ? { lines, discount } : {}), ...(s.customerId === undefined ? {} : { customerId: str(s.customerId) }), ...(s.method === undefined ? {} : { method: str(s.method) }), ...(s.fiscalYearId === undefined ? {} : { fiscalYearId: str(s.fiscalYearId) }) }
     }),
+    saleReturns: records(d.saleReturns ?? [], v => { const r = obj(v), lines = list(r.lines, line), total = num(r.total), creditApplied = num(r.creditApplied), cashRefund = num(r.cashRefund), gross = lines.reduce((n, l) => n + l.price * l.qty, 0); if (!lines.length || total > gross || creditApplied + cashRefund !== total) return invalid(); return { id: str(r.id), saleId: str(r.saleId), ...(r.customerId === undefined ? {} : { customerId: str(r.customerId) }), total, creditApplied, cashRefund, lines, reason: str(r.reason), userId: str(r.userId), userName: str(r.userName), date: str(r.date), ...(r.fiscalYearId === undefined ? {} : { fiscalYearId: str(r.fiscalYearId) }) } }),
     expenses: records(d.expenses, v => { const e = obj(v); return { id: str(e.id), category: str(e.category), note: str(e.note), amount: num(e.amount), date: str(e.date), ...(e.fiscalYearId === undefined ? {} : { fiscalYearId: str(e.fiscalYearId) }) } }),
     purchases: records(d.purchases ?? [], v => { const p = obj(v), lines = list(p.lines, line), total = num(p.total), paid = num(p.paid); if (!lines.length || total !== lines.reduce((n, l) => n + l.cost * l.qty, 0) || paid > total) return invalid(); return { id: str(p.id), supplierId: str(p.supplierId), supplier: str(p.supplier), date: str(p.date), total, paid, lines, note: str(p.note), ...(p.fiscalYearId === undefined ? {} : { fiscalYearId: str(p.fiscalYearId) }) } }),
-    movements: records(d.movements ?? [], v => { const m = obj(v), type = m.type === undefined ? undefined : str(m.type); if (type && !['sale', 'purchase', 'adjustment', 'expired_disposal', 'damaged_disposal', 'supplier_return'].includes(type)) return invalid(); return { id: str(m.id), productId: str(m.productId), name: str(m.name), amount: num(m.amount, true), balance: num(m.balance), date: str(m.date), reason: str(m.reason), ...(m.batchId === undefined ? {} : { batchId: str(m.batchId) }), ...(type ? { type: type as StockMovement['type'] } : {}) } }),
+    movements: records(d.movements ?? [], v => { const m = obj(v), type = m.type === undefined ? undefined : str(m.type); if (type && !['sale', 'sale_return', 'purchase', 'adjustment', 'expired_disposal', 'damaged_disposal', 'supplier_return'].includes(type)) return invalid(); return { id: str(m.id), productId: str(m.productId), name: str(m.name), amount: num(m.amount, true), balance: num(m.balance), date: str(m.date), reason: str(m.reason), ...(m.batchId === undefined ? {} : { batchId: str(m.batchId) }), ...(type ? { type: type as StockMovement['type'] } : {}) } }),
     batches: records(d.batches ?? [], v => { const b = obj(v); return { id: str(b.id), productId: str(b.productId), lotNumber: str(b.lotNumber), quantity: num(b.quantity), ...(b.productionDate === undefined ? {} : { productionDate: str(b.productionDate) }), ...(b.expiryDate === undefined ? {} : { expiryDate: str(b.expiryDate) }), unitCost: num(b.unitCost), supplierId: str(b.supplierId), purchaseId: str(b.purchaseId), createdAt: str(b.createdAt) } }),
     inventoryLosses: records(d.inventoryLosses ?? [], v => { const x = obj(v), kind = str(x.kind); if (!['expired', 'damaged'].includes(kind)) return invalid(); return { id: str(x.id), productId: str(x.productId), batchId: str(x.batchId), lotNumber: str(x.lotNumber), quantity: num(x.quantity), unitCost: num(x.unitCost), totalCost: num(x.totalCost), ...(x.expiryDate === undefined ? {} : { expiryDate: str(x.expiryDate) }), kind: kind as InventoryLoss['kind'], reason: str(x.reason), userId: str(x.userId), userName: str(x.userName), date: str(x.date) } }),
     supplierReturns: records(d.supplierReturns ?? [], v => { const x = obj(v); return { id: str(x.id), productId: str(x.productId), batchId: str(x.batchId), supplierId: str(x.supplierId), purchaseId: str(x.purchaseId), quantity: num(x.quantity), unitCost: num(x.unitCost), total: num(x.total), reason: str(x.reason), userId: str(x.userId), userName: str(x.userName), date: str(x.date) } }),
@@ -81,7 +82,7 @@ export function validateData(value: unknown, includeUsers = true): Data {
   const orderedYears = [...result.fiscalYears].sort((a, b) => a.startDate.localeCompare(b.startDate))
   for (let i = 1; i < orderedYears.length; i++) if (orderedYears[i].startDate <= orderedYears[i - 1].endDate) return invalid()
   const fiscalIds = new Set(result.fiscalYears.map(y => y.id))
-  for (const row of [...result.sales, ...result.purchases, ...result.expenses, ...result.payments]) if (row.fiscalYearId && !fiscalIds.has(row.fiscalYearId)) return invalid()
+  for (const row of [...result.sales, ...result.saleReturns, ...result.purchases, ...result.expenses, ...result.payments]) if (row.fiscalYearId && !fiscalIds.has(row.fiscalYearId)) return invalid()
   if (new Set(result.users.map(u => u.username.toLowerCase())).size !== result.users.length) return invalid()
   const productById = new Map(result.products.map(product => [product.id, product]))
   const supplierIds = new Set(result.suppliers.map(supplier => supplier.id))
@@ -97,6 +98,21 @@ export function validateData(value: unknown, includeUsers = true): Data {
   }
   for (const product of result.products) if (product.trackBatches && (batchStock.get(product.id) || 0) !== product.stock) return invalid()
   for (const sale of result.sales) for (const saleLine of sale.lines || []) for (const allocation of saleLine.batchAllocations || []) { const batch = batchById.get(allocation.batchId); if (!batch || batch.productId !== saleLine.productId) return invalid() }
+  const salesById = new Map(result.sales.map(sale => [sale.id, sale]))
+  const returnedBySaleProduct = new Map<string, number>()
+  for (const returned of result.saleReturns) {
+    const sale = salesById.get(returned.saleId)
+    if (!sale?.lines?.length) return invalid()
+    for (const returnedLine of returned.lines) {
+      const original = sale.lines.find(line => line.productId === returnedLine.productId)
+      const key = `${sale.id}\0${returnedLine.productId}`
+      const cumulative = (returnedBySaleProduct.get(key) || 0) + returnedLine.qty
+      if (!original || returnedLine.price !== original.price || returnedLine.cost !== original.cost || cumulative > original.qty) return invalid()
+      returnedBySaleProduct.set(key, cumulative)
+      for (const allocation of returnedLine.batchAllocations || []) { const batch = batchById.get(allocation.batchId); if (!batch || batch.productId !== returnedLine.productId) return invalid() }
+    }
+  }
+  for (const sale of result.sales) if (result.saleReturns.filter(r => r.saleId === sale.id).reduce((n, r) => n + r.total, 0) > sale.total) return invalid()
   for (const loss of result.inventoryLosses) { const batch = batchById.get(loss.batchId); if (loss.totalCost !== loss.quantity * loss.unitCost || !batch || batch.productId !== loss.productId) return invalid() }
   for (const returned of result.supplierReturns) { const batch = batchById.get(returned.batchId); if (returned.total !== returned.quantity * returned.unitCost || !batch || batch.productId !== returned.productId || batch.supplierId !== returned.supplierId) return invalid() }
   for (const event of result.auditEvents) if (!batchById.has(event.entityId)) return invalid()
@@ -105,7 +121,7 @@ export function validateData(value: unknown, includeUsers = true): Data {
 
 export function parseBackup(text: string): Data {
   const backup = obj(JSON.parse(text))
-  if (backup.format !== 'Dukkan Backup' || ![1, 2, 3, 4, 5].includes(Number(backup.version))) return invalid()
+  if (!['Dukkan Backup', 'Souk Al Dannyeh Backup'].includes(String(backup.format)) || ![1, 2, 3, 4, 5, 6].includes(Number(backup.version))) return invalid()
   return validateData(backup.data, false)
 }
 export function dayKey(date: string): string {

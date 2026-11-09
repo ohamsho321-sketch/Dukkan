@@ -1,12 +1,12 @@
 [package]
-name = "dukkan"
-version = "1.1.0"
-description = "Dukkan — نظام إدارة الأعمال المحلي"
-authors = ["طارق العمامي"]
+name = "souk-al-dannyeh-pos"
+version = "1.2.0"
+description = "سوق الضنية المركزي — كاشير ومحاسبة محلية"
+authors = ["Tarek Elomami (original Dukkan), Souk Al Dannyeh customization"]
 edition = "2021"
 
 [lib]
-name = "dukkan_lib"
+name = "souk_al_dannyeh_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

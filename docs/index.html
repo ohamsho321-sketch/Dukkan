@@ -12,7 +12,7 @@
 <body>
   <header class="header shell">
     <a class="brand" href="#top"><img src="./assets/dukkan-logo.png" alt="شعار Dukkan" /><span><b>Dukkan</b><small>إدارة أعمالك بذكاء</small></span></a>
-    <nav aria-label="التنقل الرئيسي"><a href="#updates">الجديد في 1.1.0</a><a href="#features">المميزات</a><a href="#screens">واجهات النظام</a><a href="#start">كيف تبدأ</a><a href="#about">عن النظام</a></nav>
+    <nav aria-label="التنقل الرئيسي"><a href="#updates">الجديد في 1.2.0</a><a href="#features">المميزات</a><a href="#screens">واجهات النظام</a><a href="#start">كيف تبدأ</a><a href="#about">عن النظام</a></nav>
     <a class="header-download" href="#download">تنزيل النظام <span>↓</span></a>
   </header>
 
@@ -25,14 +25,15 @@
     <section class="stats shell" aria-label="مزايا مختصرة"><div><strong>100%</strong><span>واجهة عربية</span></div><div><strong>Offline</strong><span>بدون إنترنت</span></div><div><strong>LYD</strong><span>دقة مالية</span></div><div><strong>محلي</strong><span>بياناتك معك</span></div></section>
 
 <section class="shell section" id="updates">
-<header class="section-head"><div><span class="kicker">الجديد في Dukkan · 1.1.0</span><h2>نشاطك أوضح.<br /><em>وقرارك أسهل.</em></h2></div><p>لوحة نشاط عربية بتصميم زجاجي، تجمع المؤشرات والرسوم والتنبيهات في مساحة واحدة.</p></header>
+<header class="section-head"><div><span class="kicker">الجديد في Dukkan · 1.2.0</span><h2>بياناتك أدق.<br /><em>وعملك محمي.</em></h2></div><p>تحقق أصلي من الأسعار والمخزون والصلاحيات، مع تتبع الدفعات والصلاحية والسنوات المالية.</p></header>
 <div class="update-layout"><div><ul class="update-list">
+<li><strong>تحقق أصلي من كل فاتورة:</strong> يعاد حساب السعر والخصم والإجمالي والمخزون داخل Rust قبل حفظ العملية.</li>
+<li><strong>جلسات وصلاحيات محمية:</strong> يمنع الكاشير من تعديل المنتجات أو الأسعار أو الإعدادات، مع قفل مؤقت لمحاولات الدخول المتكررة.</li>
 <li><strong>فترات ومقارنات واضحة:</strong> اليوم والأسبوع والشهر والسنة المالية أو فترة مخصصة مع مقارنة بالفترة السابقة.</li>
 <li><strong>ربحية بتكلفتها التاريخية:</strong> المبيعات وتكلفة البضاعة ومجمل وصافي الربح والمصروفات والخسائر.</li>
 <li><strong>رسوم وتنبيهات محلية:</strong> اتجاه المبيعات والمنتجات الأعلى أداءً ونقص المخزون وقرب انتهاء الصلاحية.</li>
 <li><strong>لوحة تناسب نشاطك:</strong> أوضاع مبسطة ومتقدمة، قوالب للأنشطة، واختيار المؤشرات وترتيب الأقسام وإخفاؤها.</li>
-<li><strong>تجربة عربية متكاملة:</strong> خط محلي، اتجاه من اليمين إلى اليسار، وتصميم متجاوب دون خدمات تحليل سحابية.</li>
-</ul><p class="release-note">رقم الإصدار مستمر: <b dir="ltr">1.1.0</b>. تحديث لوحة النشاط متاح الآن في ملف Windows المحدث بعد اجتياز الاختبارات وبناء المثبت وفحص تثبيته وتشغيله آليًا. أنشئ نسخة احتياطية قبل التحديث.</p><p class="update-links"><a href="./user-guide.html">دليل لوحة النشاط ←</a></p></div>
+</ul><p class="release-note">الإصدار الحالي: <b dir="ltr">1.2.0</b>. لا تُقبل الفواتير أو تغييرات المخزون إلا بعد التحقق منها داخل طبقة Tauri الأصلية، مع جلسات وصلاحيات محمية. أنشئ نسخة احتياطية قبل التحديث.</p><p class="update-links"><a href="./user-guide.html">دليل لوحة النشاط ←</a> · <a href="./SECURITY_IMPLEMENTATION.md">تفاصيل الحماية ←</a></p></div>
 <figure><a href="./assets/dashboard-glass-desktop.png"><img loading="lazy" src="./assets/dashboard-glass-desktop.png" alt="لوحة النشاط الجديدة: مؤشرات المبيعات والربحية والرسوم والتنبيهات" /></a><figcaption>لقطة فعلية بسجلات اختبار معزولة، وليست بيانات جاهزة في نسخة الإنتاج.</figcaption></figure></div></section>
     <section class="section shell" id="features"><header class="section-head"><div><span class="kicker">كل ما يحتاجه نشاطك</span><h2>أدوات عملية.<br /><em>قرارات أذكى.</em></h2></div><p>من أول دفعة تدخل المخزون إلى آخر فاتورة في اليوم، يحافظ Dukkan على ترابط الكميات والتكاليف والحسابات.</p></header><div class="features"><article class="featured"><span>01</span><div class="icon">▦</div><h3>نقطة بيع سريعة</h3><p>بحث بالاسم أو SKU أو الباركود، مع بيع نقدي أو آجل وخصم تلقائي من المخزون.</p></article><article><span>02</span><div class="icon">◇</div><h3>دفعات وصلاحية</h3><p>تتبع اختياري للدفعات، تنبيهات قرب الانتهاء ومنع بيع المخزون المنتهي.</p></article><article><span>03</span><div class="icon">FEFO</div><h3>صرف الأقدم صلاحية</h3><p>اختيار تلقائي للدفعة الأقرب انتهاءً مع الاحتفاظ بتكلفتها وأثرها التاريخي.</p></article><article><span>04</span><div class="icon">◎</div><h3>حسابات دقيقة</h3><p>مبيعات ومصروفات وديون وتكاليف دفعات بالدينار الليبي بثلاث خانات عشرية.</p></article><article><span>05</span><div class="icon">↩</div><h3>إتلاف ومرتجعات موثقة</h3><p>إتلاف المنتهي أو التالف وإرجاعه للمورد مع حركة مخزون وسبب وسجل تدقيق.</p></article><article><span>06</span><div class="icon">↗</div><h3>سنة مالية وتقارير واضحة</h3><p>اختر السنة في التقارير وأنهِها بملخص بسيط ونسخة احتياطية، ثم ابدأ التالية مع استمرار المخزون والديون.</p></article></div></section>
 

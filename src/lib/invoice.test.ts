@@ -6,7 +6,7 @@ import type { Sale } from '../types'
 const sale: Sale = { id: 'SAL-example', customer: 'أحمد', total: 790000, paid: 390000, status: 'جزئية', date: '2026-09-14T09:00:00', cashier: 'طارق', items: 20, discount: 10000, method: 'نقدي', lines: [{ productId: 'rice', name: 'رز بسمتي', unit: 'كيس', qty: 20, price: 40000, cost: 30000 }] }
 describe('invoice printing', () => {
   it('keeps contact details outside the item table and displays correct discounted and credit amounts', () => {
-    const html = invoiceHtml({ ...emptyData.business, name: 'متجر', phone: '0912345678' }, sale)
+    const html = invoiceHtml({ ...emptyData.business, name: 'متجر', phone: '0912345678', currency: 'LYD' }, sale)
     const table = html.slice(html.indexOf('<table>'), html.indexOf('</table>'))
     expect(table).toContain('رز بسمتي')
     expect(table).not.toContain('0912345678')

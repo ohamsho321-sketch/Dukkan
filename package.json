@@ -1,8 +1,8 @@
 {
-  "name": "dukkan-business-manager",
-  "version": "1.1.0",
+  "name": "souk-al-dannyeh-pos",
+  "version": "1.2.0",
   "private": true,
-  "description": "نظام Dukkan لإدارة الأعمال والمبيعات لنشاطك في ليبيا",
+  "description": "برنامج سوق الضنية المركزي للكاشير والمحاسبة والمخزون بلا إنترنت",
   "type": "module",
   "scripts": {
     "dev": "vite",

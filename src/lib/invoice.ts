@@ -1,14 +1,16 @@
 import type { Business, Purchase, Sale } from '../types'
 import { displayDate } from './data'
+import { currencyDefinition, formatMoney } from './money'
 
 const escape = (value: string | number) => String(value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!))
 const label = (ar: string, en: string) => `<span class="ar">${escape(ar)}</span><small lang="en" dir="ltr">${escape(en)}</small>`
-const amount = (value: number) => `<bdi>${(value / 1000).toLocaleString('en-US', { minimumFractionDigits: 3, maximumFractionDigits: 3 })}</bdi> <span class="currency">د.ل <small lang="en">LYD</small></span>`
 const translations: Record<string, string> = { 'نقدي': 'Cash', 'بطاقة': 'Card', 'تحويل': 'Bank transfer', 'صك': 'Cheque', 'قطعة': 'Piece', 'كرتونة': 'Carton', 'كيس': 'Bag', 'كيلو': 'kg', 'لتر': 'Litre', 'علبة': 'Box', 'غير مسجلة': 'Not recorded' }
 
 export function invoiceHtml(business: Business, invoice: Sale | Purchase) {
   const purchase = 'supplier' in invoice
   const discount = 'discount' in invoice ? invoice.discount || 0 : 0
+  const currency = currencyDefinition(business.currency)
+  const amount = (value: number) => { const formatted = formatMoney(value, false, currency.code); return `<bdi>${escape(formatted.slice(0, formatted.length - currency.symbol.length).trim())}</bdi> <span class="currency">${escape(currency.symbol)} <small lang="en">${currency.code}</small></span>` }
   // Display the full identifier, separate from the shop name, to preserve uniqueness.
   const field = (ar: string, en: string, value: string) => `<div class="field">${label(ar, en)}<div class="value">${escape(value || '—')}</div></div>`
   const totalRow = (ar: string, en: string, value: number, cls = '') => `<div class="total-row ${cls}"><div>${label(ar, en)}</div><strong>${amount(value)}</strong></div>`

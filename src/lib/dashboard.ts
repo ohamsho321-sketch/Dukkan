@@ -58,16 +58,17 @@ export function calculateDashboard(data: Data, range: DateRange, today: string, 
   const previous = previousRange(range)
   const inside = (date: string, r = range) => { const key = recordDay(date); return Boolean(key && key >= r.from && key <= r.to) }
   const rows = data.sales.filter(s => inside(s.date)), prior = data.sales.filter(s => inside(s.date, previous))
-  const revenue = total(rows, s => s.total), previousRevenue = total(prior, s => s.total)
-  const costs = (sales: typeof rows) => sales.every(s => s.lines?.length) ? total(sales, s => total(s.lines!, historicalCost)) : null
-  const cost = costs(rows), previousCost = costs(prior)
+  const returned = data.saleReturns.filter(r => inside(r.date)), priorReturned = data.saleReturns.filter(r => inside(r.date, previous))
+  const revenue = exact(total(rows, s => s.total) - total(returned, r => r.total)), previousRevenue = exact(total(prior, s => s.total) - total(priorReturned, r => r.total))
+  const costs = (sales: typeof rows, returns: typeof returned) => sales.every(s => s.lines?.length) ? exact(total(sales, s => total(s.lines!, historicalCost)) - total(returns, r => total(r.lines, historicalCost))) : null
+  const cost = costs(rows, returned), previousCost = costs(prior, priorReturned)
   const grossProfit = cost === null ? null : exact(revenue - cost)
   const margin = revenue > 0 && grossProfit !== null ? grossProfit / revenue * 100 : null
   const previousMargin = previousRevenue > 0 && previousCost !== null ? (previousRevenue - previousCost) / previousRevenue * 100 : null
   const expenses = total(data.expenses.filter(e => inside(e.date)), e => e.amount)
   const losses = total(data.inventoryLosses.filter(e => inside(e.date)), e => e.totalCost)
   const receivables = total(data.customers, p => Math.max(0, p.balance)), payables = total(data.suppliers, p => Math.max(0, p.balance))
-  const customerPayments = add(total(rows, s => s.paid), total(data.payments.filter(p => p.kind === 'customer' && inside(p.date)), p => p.amount))
+  const customerPayments = exact(add(total(rows, s => s.paid), total(data.payments.filter(p => p.kind === 'customer' && inside(p.date)), p => p.amount)) - total(returned, r => r.cashRefund))
   const supplierPayments = add(total(data.purchases.filter(p => inside(p.date)), p => p.paid), total(data.payments.filter(p => p.kind === 'supplier' && inside(p.date)), p => p.amount))
   const productById = new Map(data.products.map(p => [p.id, p]))
   let inventoryValue = total(data.products.filter(p => p.trackInventory && !p.trackBatches), p => exact(p.stock * p.cost))
@@ -107,6 +108,21 @@ export function calculateDashboard(data: Data, range: DateRange, today: string, 
       p.quantity = add(p.quantity, line.qty); p.revenue = add(p.revenue, net); p.profit = add(p.profit, exact(net - historicalCost(line))); products.set(p.id, p)
     })
   }
+  for (const saleReturn of returned) {
+    const point = points.get(bucket(recordDay(saleReturn.date)))!
+    point.sales = exact(point.sales - saleReturn.total)
+    const returnCost = total(saleReturn.lines, historicalCost)
+    if (point.cost !== null) { point.cost = exact(point.cost - returnCost); point.profit = exact(point.sales - point.cost) }
+    const gross = total(saleReturn.lines, l => exact(l.price * l.qty))
+    let allocated = 0, cumulativeGross = 0
+    saleReturn.lines.forEach((line, index) => {
+      cumulativeGross = add(cumulativeGross, exact(line.price * line.qty))
+      const cumulativeNet = index === saleReturn.lines.length - 1 ? saleReturn.total : gross ? Number(BigInt(saleReturn.total) * BigInt(cumulativeGross) / BigInt(gross)) : 0
+      const net = cumulativeNet - allocated; allocated = cumulativeNet
+      const p = products.get(line.productId) || { id: line.productId, name: line.name, quantity: 0, revenue: 0, profit: 0 }
+      p.quantity = exact(p.quantity - line.qty); p.revenue = exact(p.revenue - net); p.profit = exact(p.profit - (net - historicalCost(line))); products.set(p.id, p)
+    })
+  }
   const categories = new Map<string, number>()
   for (const e of data.expenses) if (inside(e.date)) categories.set(e.category, add(categories.get(e.category) || 0, e.amount))
   const growth = percentageChange(revenue, previousRevenue)
@@ -120,7 +136,7 @@ export function calculateDashboard(data: Data, range: DateRange, today: string, 
   if (margin !== null && previousMargin !== null && margin < previousMargin) insights.push({ id: 'margin', priority: 'warning', text: `انخفض هامش مجمل الربح بمقدار ${(previousMargin - margin).toFixed(1)} نقطة مئوية.`, rule: 'previous gross margin minus current gross margin; both revenues > 0 and costs known', destination: 'reports' })
   if (revenue > 0 && expenses > 0) insights.push({ id: 'expenses', priority: expenses > revenue ? 'warning' : 'information', text: `تمثل المصروفات التشغيلية ${(expenses / revenue * 100).toFixed(1)}% من المبيعات خلال الفترة.`, rule: 'period operating expenses / period revenue * 100', destination: 'expenses' })
   if (losses > 0) insights.push({ id: 'losses', priority: 'warning', text: 'سُجلت خسائر تلف أو إتلاف خلال الفترة. راجع سجل المخزون.', rule: 'sum of recorded inventoryLosses.totalCost in range > 0', destination: 'inventory' })
-  const unknownDates = [...data.sales, ...data.expenses, ...data.payments, ...data.purchases, ...data.inventoryLosses].filter(r => !recordDay(r.date)).length
-  return { range, previous, revenue, previousRevenue, cost, grossProfit, margin, previousMargin, expenses, losses, netResult: grossProfit === null ? null : exact(grossProfit - expenses - losses), invoiceCount: rows.length, average: rows.length ? Math.round(revenue / rows.length) : null, growth, receivables, payables, customerPayments, supplierPayments, inventoryValue, low, out, healthy, expiring, expired, points: [...points.values()], products: [...products.values()], categories: [...categories].map(([name, value]) => ({ name, value })), insights, unknownDates, missingCosts: rows.filter(s => !s.lines?.length).length }
+  const unknownDates = [...data.sales, ...data.saleReturns, ...data.expenses, ...data.payments, ...data.purchases, ...data.inventoryLosses].filter(r => !recordDay(r.date)).length
+  return { range, previous, revenue, previousRevenue, cost, grossProfit, margin, previousMargin, expenses, losses, netResult: grossProfit === null ? null : exact(grossProfit - expenses - losses), invoiceCount: rows.length, returnCount: returned.length, average: rows.length ? Math.round(revenue / rows.length) : null, growth, receivables, payables, customerPayments, supplierPayments, inventoryValue, low, out, healthy, expiring, expired, points: [...points.values()], products: [...products.values()], categories: [...categories].map(([name, value]) => ({ name, value })), insights, unknownDates, missingCosts: rows.filter(s => !s.lines?.length).length }
 }
 export type DashboardData = ReturnType<typeof calculateDashboard>

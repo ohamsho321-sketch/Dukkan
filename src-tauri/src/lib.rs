@@ -3,11 +3,12 @@ use serde::Serialize;
 use std::path::PathBuf;
 use tauri::Manager;
 mod dashboard;
+mod security;
 
 fn database_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    Ok(dir.join("dukkan.sqlite3"))
+    Ok(dir.join("souk-al-dannyeh.sqlite3"))
 }
 
 #[derive(Serialize)]
@@ -22,7 +23,7 @@ fn initialize_database(app: tauri::AppHandle) -> Result<String, String> {
     let path = database_path(&app)?;
     let connection = Connection::open(&path).map_err(|e| e.to_string())?;
     connection
-        .execute_batch("PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL;")
+        .execute_batch("PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL; PRAGMA trusted_schema = OFF; PRAGMA secure_delete = ON;")
         .map_err(|e| e.to_string())?;
     connection
         .execute_batch(include_str!("../migrations/001_initial.sql"))
@@ -100,6 +101,7 @@ fn load_app_state(app: tauri::AppHandle) -> Result<Option<StoredState>, String> 
 #[tauri::command]
 fn save_app_state(
     app: tauri::AppHandle,
+    session: tauri::State<dashboard::DashboardSession>,
     expected_revision: i64,
     revision: i64,
     state_json: String,
@@ -107,18 +109,43 @@ fn save_app_state(
     if expected_revision < -1 || revision <= expected_revision {
         return Err("invalid state revision".into());
     }
-    serde_json::from_str::<serde_json::Value>(&state_json)
-        .map_err(|_| "invalid state json".to_string())?;
+    let next_state = security::parse_and_validate_state(&state_json)?;
     let mut connection = Connection::open(database_path(&app)?).map_err(|e| e.to_string())?;
+    connection
+        .execute_batch(
+            "PRAGMA foreign_keys = ON; PRAGMA trusted_schema = OFF; PRAGMA secure_delete = ON;",
+        )
+        .map_err(|e| e.to_string())?;
     let transaction = connection.transaction().map_err(|e| e.to_string())?;
     let current = transaction
-        .query_row("SELECT revision FROM app_state WHERE id = 1", [], |row| {
-            row.get::<_, i64>(0)
-        })
+        .query_row(
+            "SELECT revision, state_json FROM app_state WHERE id = 1",
+            [],
+            |row| Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?)),
+        )
         .optional()
         .map_err(|e| e.to_string())?;
-    if current.unwrap_or(-1) != expected_revision {
+    if current.as_ref().map(|row| row.0).unwrap_or(-1) != expected_revision {
         return Err("state revision conflict".into());
+    }
+    if let Some((_, current_json)) = current {
+        let current_state = security::parse_and_validate_state(&current_json)?;
+        if current_state["users"]
+            .as_array()
+            .is_some_and(|users| users.is_empty())
+        {
+            security::authorize_first_admin(&current_state, &next_state)?;
+        } else {
+            let identity = dashboard::current_identity(&current_state, &session)?;
+            security::authorize_transition(&current_state, &next_state, &identity)?;
+        }
+    } else {
+        let users = next_state["users"]
+            .as_array()
+            .ok_or("بيانات المستخدمين غير صالحة")?;
+        if users.is_empty() || !next_state["setupComplete"].as_bool().unwrap_or(false) {
+            return Err("يجب إنشاء حساب مدير وإكمال الإعداد قبل الحفظ".into());
+        }
     }
     transaction.execute(
         "INSERT INTO app_state(id, revision, state_json, updated_at) VALUES(1, ?1, ?2, datetime('now')) ON CONFLICT(id) DO UPDATE SET revision = excluded.revision, state_json = excluded.state_json, updated_at = excluded.updated_at",
@@ -153,7 +180,7 @@ pub fn run() {
                 .map_err(|e| std::io::Error::other(e).into())
         })
         .run(tauri::generate_context!())
-        .expect("error while running Dukkan");
+        .expect("error while running Souk Al Dannyeh");
 }
 
 #[cfg(test)]
