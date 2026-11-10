@@ -1,6 +1,6 @@
 [package]
 name = "souk-al-dannyeh-pos"
-version = "1.2.0"
+version = "1.2.1"
 description = "سوق الضنية المركزي — كاشير ومحاسبة محلية"
 authors = ["Tarek Elomami (original Dukkan), Souk Al Dannyeh customization"]
 edition = "2021"

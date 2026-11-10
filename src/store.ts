@@ -4,7 +4,9 @@ import { emptyData, validateData, businessData, parseBackup, todayKey, type Data
 import { credentials, verifyPassword } from './lib/auth'
 
 const storageKey = 'dukkan-local-db-v1'
-let storageRevision = 0
+// A database with no app_state row has revision -1. The first persisted state
+// therefore becomes revision 0 and must use -1 as its expected revision.
+let storageRevision = -1
 const tauriRuntime = () => typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
 const tauriApi = () => import('@tauri-apps/api/core')
 async function authenticateDashboard(username: string, password: string) {
@@ -55,7 +57,7 @@ function load(): Data {
     const stored = localStorage.getItem(storageKey)
     if (!stored) return structuredClone(emptyData)
     const envelope = JSON.parse(stored)
-    storageRevision = Number.isSafeInteger(envelope.revision) && envelope.revision >= 0 ? envelope.revision : 0
+    storageRevision = Number.isSafeInteger(envelope.revision) && envelope.revision >= 0 ? envelope.revision : -1
     return validateData(envelope.state)
   } catch { loadError = 'تعذر قراءة البيانات المحفوظة. لم يتم حذفها أو استبدالها. احتفظ بنسخة من بيانات المتصفح.'; return structuredClone(emptyData) }
 }
@@ -429,6 +431,7 @@ export async function initializeDesktopPersistence(): Promise<void> {
       useAppStore.setState({ ...data, sessionId: null, loadError: '' })
     } else if (!stored && !current.setupComplete && !current.users.length) {
       // Keep a fresh database empty until setup creates the first administrator.
+      storageRevision = -1
       return
     } else if (!stored || storageRevision > stored.revision) {
       await invoke('save_app_state', { expectedRevision: stored?.revision ?? -1, revision: storageRevision, stateJson: JSON.stringify(current) })

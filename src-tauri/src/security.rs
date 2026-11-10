@@ -271,11 +271,33 @@ pub fn authorize_first_admin(old: &Value, new: &Value) -> Result<(), String> {
     if !array(old, "users")?.is_empty() {
         return Err("تم إنشاء حساب المدير بالفعل".into());
     }
-    root_unchanged_except(old, new, &["users", "activeUser"])?;
+    let initial_setup = old.get("setupComplete").and_then(Value::as_bool) == Some(false);
+    if initial_setup {
+        root_unchanged_except(
+            old,
+            new,
+            &[
+                "business",
+                "setupComplete",
+                "users",
+                "activeUser",
+                "fiscalYears",
+            ],
+        )?;
+        if new.get("setupComplete").and_then(Value::as_bool) != Some(true)
+            || text(&new["business"], "name")?.trim().is_empty()
+            || array(new, "fiscalYears")?.is_empty()
+        {
+            return Err("Business details and a fiscal year are required during setup".into());
+        }
+    } else {
+        root_unchanged_except(old, new, &["users", "activeUser"])?;
+    }
     let users = array(new, "users")?;
     if users.len() != 1
         || text(&users[0], "role")? != "admin"
         || users[0].get("active") != Some(&Value::Bool(true))
+        || text(new, "activeUser")? != text(&users[0], "name")?
     {
         return Err("يجب إنشاء حساب مدير نشط واحد".into());
     }
@@ -607,5 +629,33 @@ mod tests {
             role: "cashier".into(),
         };
         assert!(authorize_transition(&old, &new, &identity).is_err());
+    }
+
+    #[test]
+    fn authorizes_complete_first_run_setup() {
+        let mut old = base_state();
+        old["setupComplete"] = Value::Bool(false);
+        old["business"] = serde_json::json!({"name":"Old"});
+        old["activeUser"] = Value::String(String::new());
+        old["users"] = serde_json::json!([]);
+        old["fiscalYears"] = serde_json::json!([]);
+
+        let mut new = old.clone();
+        new["setupComplete"] = Value::Bool(true);
+        new["business"] = serde_json::json!({"name":"Dukkan"});
+        new["activeUser"] = Value::String("Admin".into());
+        new["users"] = serde_json::json!([{
+            "id":"u1", "name":"Admin", "username":"admin",
+            "salt":"0123456789abcdef0123456789abcdef",
+            "hash":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+            "role":"admin", "active":true
+        }]);
+        new["fiscalYears"] = serde_json::json!([{"id":"fy1"}]);
+
+        assert!(authorize_first_admin(&old, &new).is_ok());
+
+        let mut tampered = new;
+        tampered["products"] = serde_json::json!([{"id":"unexpected"}]);
+        assert!(authorize_first_admin(&old, &tampered).is_err());
     }
 }
