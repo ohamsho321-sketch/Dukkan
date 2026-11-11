@@ -111,12 +111,15 @@ describe('accounts and backups', () => {
     expect(useAppStore.getState().sessionId).toBeTruthy()
     expect(JSON.parse(saved).state.sessionId).toBeUndefined()
   })
-  it('blocks cashier access to administration and purchasing', async () => {
-    const { product, supplier } = await seed(), s = useAppStore.getState()
+  it('limits sales staff to completing sales only', async () => {
+    const { product, customer, supplier } = await seed(), s = useAppStore.getState()
+    await s.completeSale([{ productId: product.id, qty: 1 }], 0, customer.id, 'نقدي', 0)
     await s.addUser('Cashier', 'cash', 'cash-test-123', 'cashier')
     s.logout(); await s.login('cash', 'cash-test-123')
     await expect(s.updateBusiness({ name: 'bad' })).rejects.toThrow()
     await expect(s.completePurchase(supplier.id, [{ productId: product.id, qty: 1, cost: 10 }], 10, '2026-09-12', '')).rejects.toThrow()
+    await expect(s.addCustomer({ name: 'Hidden customer', phone: '', city: '' })).rejects.toThrow()
+    await expect(s.recordPayment('customer', customer.id, 1000, '')).rejects.toThrow()
     expect(() => s.backup()).toThrow()
     await expect(s.completeSale([{ productId: product.id, qty: 1 }], 5000, '', 'نقدي', 0)).resolves.toBeTruthy()
   })

@@ -158,7 +158,7 @@ export const useAppStore = create<State>()((set, get) => {
       if (!product.trackBatches && get().batches.some(b => b.productId === product.id && b.quantity)) throw new Error('لا يمكن إيقاف تتبع الدفعات مع وجود كميات في دفعات نشطة')
       await commit({ products: get().products.map(p => p.id === product.id ? { ...product, stock: old.stock } : p) })
     },
-    addCustomer: async person => { access(); await commit({ customers: [...get().customers, { ...person, name: required(person.name), id: id('C'), balance: 0, purchases: 0, lastPurchase: '' }] }) },
+    addCustomer: async person => { access(true); await commit({ customers: [...get().customers, { ...person, name: required(person.name), id: id('C'), balance: 0, purchases: 0, lastPurchase: '' }] }) },
     addSupplier: async person => { access(true); await commit({ suppliers: [...get().suppliers, { ...person, name: required(person.name), id: id('S'), balance: 0, purchases: 0, lastPurchase: '' }] }) },
     addExpense: async expense => { access(true); if (!amount(expense.amount)) throw new Error('أدخل مبلغاً أكبر من صفر'); if (expense.date && !validDate(expense.date)) throw new Error('التاريخ غير صالح'); const date = expense.date || now(), fiscalYearId = fiscalFor(date).id; await commit({ expenses: [{ ...expense, id: id('EXP'), date, fiscalYearId }, ...get().expenses] }) },
     completeSale: async (cart, paid, customerId, method, discount) => {
@@ -323,7 +323,7 @@ export const useAppStore = create<State>()((set, get) => {
       return purchase
     },
     recordPayment: async (kind, partyId, value, note) => {
-      access(kind === 'supplier'); amount(value)
+      access(true); amount(value)
       const key = kind === 'customer' ? 'customers' : 'suppliers', party = get()[key].find(p => p.id === partyId)
       if (!party || !value || value > party.balance) throw new Error('الدفعة يجب أن تكون أكبر من صفر ولا تتجاوز الرصيد')
       const date = now(), fiscalYearId = fiscalFor(date).id

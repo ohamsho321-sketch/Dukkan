@@ -4,6 +4,7 @@ declare module 'lucide-react' {
   export const ArrowDownToLine: ComponentType<IconProps>
   export const ArrowUpFromLine: ComponentType<IconProps>
   export const BarChart3: ComponentType<IconProps>
+  export const Barcode: ComponentType<IconProps>
   export const Bell: ComponentType<IconProps>
   export const Box: ComponentType<IconProps>
   export const Calculator: ComponentType<IconProps>

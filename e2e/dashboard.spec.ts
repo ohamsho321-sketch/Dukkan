@@ -9,7 +9,7 @@ async function seed(page: Page) {
     await s.completeSetup({ name: 'متجر الاختبار المحلي', type: 'مواد غذائية', phone: '', address: '', taxNumber: '', logo: '', primaryColor: '#2563eb', currency: 'الدينار الليبي' }, { name: 'مدير الاختبار', username: 'test-admin', password: 'local-test-only-123' })
     await s.addCustomer({ name: 'عميل الاختبار', phone: '', city: '' })
     await s.addSupplier({ name: 'مورد الاختبار', phone: '', city: '' })
-    await s.addProduct({ name: 'قهوة عربية', category: 'مواد غذائية', unit: 'عبوة', cost: 1000, price: 3000, wholesalePrice: 2500, stock: 8, minStock: 3, trackInventory: true, status: 'active' })
+    await s.addProduct({ name: 'قهوة عربية', barcode: '6281234567890', category: 'مواد غذائية', unit: 'عبوة', cost: 1000, price: 3000, wholesalePrice: 2500, stock: 8, minStock: 3, trackInventory: true, status: 'active' })
     const product = useAppStore.getState().products[0], customer = useAppStore.getState().customers[0]
     await s.completeSale([{ productId: product.id, qty: 6 }], 10000, customer.id, 'نقدي', 0)
     await s.addExpense({ category: 'نقل', note: 'مصروف اختبار', amount: 1000 })
@@ -58,7 +58,7 @@ test('empty state, no external requests, and reduced motion', async ({ page }) =
   await expect(page.locator('.widget-sales')).toContainText('لا توجد مبيعات')
   expect(external).toEqual([])
 })
-test('preferences survive reload and cashier cannot open analytics', async ({ page }) => {
+test('preferences survive reload and sales staff can scan without seeing management pages', async ({ page }) => {
   await seed(page)
   await page.getByRole('button', { name: 'متقدم', exact: true }).click()
   await page.getByRole('button', { name: 'تخصيص', exact: true }).click()
@@ -73,4 +73,11 @@ test('preferences survive reload and cashier cannot open analytics', async ({ pa
   })
   await expect(page.locator('.intelligent-dashboard')).toHaveCount(0)
   await expect(page.getByRole('heading', { name: 'نقطة البيع', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'المبيعات', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'العملاء والديون', exact: true })).toHaveCount(0)
+  await page.getByLabel('مسح الباركود').fill('6281234567890')
+  await page.getByLabel('مسح الباركود').press('Enter')
+  await expect(page.locator('.cart-line')).toContainText('قهوة عربية')
+  await page.locator('.pos-product').filter({ hasText: 'قهوة عربية' }).click()
+  await expect(page.locator('.cart-line .qty')).toContainText('2')
 })

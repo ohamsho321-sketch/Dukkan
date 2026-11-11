@@ -41,19 +41,19 @@ function App() {
   const [showMobileNav, setShowMobileNav] = useState(false)
   const [toast, setToast] = useState('')
   const [switchingUser, setSwitchingUser] = useState(false)
-  const go = (next: Page) => { if (!isAdmin() && !['pos', 'sales', 'customers', 'help', 'about'].includes(next)) return; setPage(next); setShowMobileNav(false) }
+  const go = (next: Page) => { if (!isAdmin() && !['pos', 'help', 'about'].includes(next)) return; setPage(next); setShowMobileNav(false) }
   const notify = (message: string) => { setToast(message); window.setTimeout(() => setToast(''), 2600) }
 
   if (loadError) return <main className="auth-page"><p role="alert">{loadError}</p></main>
   if (!setupComplete) return <SetupWizard />
   if (!sessionId || !users.some(u => u.id === sessionId && u.active)) return <AuthScreen switchingUser={switchingUser} />
-  const shownPage = !isAdmin() && !['pos', 'sales', 'customers', 'help', 'about'].includes(page) ? 'pos' : page
+  const shownPage = !isAdmin() && !['pos', 'help', 'about'].includes(page) ? 'pos' : page
   return <div className="app" dir="rtl" style={{ '--primary': business.primaryColor } as CSSProperties}>
     <Sidebar page={shownPage} onNavigate={go} open={showMobileNav} onClose={() => setShowMobileNav(false)} />
     <main className="main-shell">
       <header className="topbar">
         <div className="topbar-start"><button className="icon-button mobile-menu" onClick={() => setShowMobileNav(true)}><Menu size={20} /></button><div className="offline-pill"><span className="online-dot" /> يعمل بدون إنترنت</div></div>
-        <div className="topbar-actions"><button className="btn secondary" onClick={() => { if (!window.confirm('تبديل المستخدم؟ ستُغلق أي فاتورة أو تعديلات لم تحفظها بعد.')) return; setSwitchingUser(true); logout(); setPage('dashboard'); setShowMobileNav(false); setToast('') }}><Users size={18} />تبديل المستخدم</button><button className="icon-button" title="تسجيل الخروج" aria-label="تسجيل الخروج" onClick={() => { setSwitchingUser(false); logout(); setPage('dashboard') }}><LogOut size={19} /></button><div className="top-user"><div className="avatar small">{activeUser.slice(0, 1)}</div><div><b>{activeUser}</b><small>{isAdmin() ? 'مدير النظام' : 'كاشير'}</small></div><ChevronDown size={15} /></div></div>
+        <div className="topbar-actions"><button className="btn secondary" onClick={() => { if (!window.confirm('تبديل المستخدم؟ ستُغلق أي فاتورة أو تعديلات لم تحفظها بعد.')) return; setSwitchingUser(true); logout(); setPage('dashboard'); setShowMobileNav(false); setToast('') }}><Users size={18} />تبديل المستخدم</button><button className="icon-button" title="تسجيل الخروج" aria-label="تسجيل الخروج" onClick={() => { setSwitchingUser(false); logout(); setPage('dashboard') }}><LogOut size={19} /></button><div className="top-user"><div className="avatar small">{activeUser.slice(0, 1)}</div><div><b>{activeUser}</b><small>{isAdmin() ? 'مدير النظام' : 'موظف مبيعات'}</small></div><ChevronDown size={15} /></div></div>
       </header>
       <div className="page-wrap">
         <PageHeader page={shownPage} onNavigate={go} />
@@ -85,7 +85,7 @@ function Sidebar({ page, onNavigate, open, onClose }: { page: Page; onNavigate: 
     <div className="nav-label">الرئيسية</div>
     <nav>{nav.slice(0, 2).filter(item => isAdmin() || item.id === 'pos').map((item) => <NavItem key={item.id} item={item} active={page === item.id} onNavigate={onNavigate} />)}</nav>
     <div className="nav-label">إدارة النشاط</div>
-    <nav>{nav.slice(2).filter(item => isAdmin() || ['sales', 'customers'].includes(item.id)).map((item) => <NavItem key={item.id} item={item} active={page === item.id} onNavigate={onNavigate} />)}</nav>
+    <nav>{nav.slice(2).filter(() => isAdmin()).map((item) => <NavItem key={item.id} item={item} active={page === item.id} onNavigate={onNavigate} />)}</nav>
     <div className="nav-label">النظام</div>
     <nav>
       {isAdmin() && <NavItem item={{ id: 'users', label: 'المستخدمون والصلاحيات', icon: ShieldCheck }} active={page === 'users'} onNavigate={onNavigate} />}
@@ -93,7 +93,7 @@ function Sidebar({ page, onNavigate, open, onClose }: { page: Page; onNavigate: 
       <NavItem item={{ id: 'help', label: 'مركز المساعدة', icon: CircleHelp }} active={page === 'help'} onNavigate={onNavigate} />
       <NavItem item={{ id: 'about', label: 'حول النظام', icon: Sparkles }} active={page === 'about'} onNavigate={onNavigate} />
     </nav>
-    <div className="sidebar-footer"><div className="backup-hint"><DatabaseBackup size={18} /><div><b>نسخة احتياطية</b><span>بيانات محلية بالكامل</span></div><ArrowUpFromLine size={15} /></div><div className="version">سوق الضنية <span>v1.2.1</span></div></div>
+    <div className="sidebar-footer"><div className="backup-hint"><DatabaseBackup size={18} /><div><b>نسخة احتياطية</b><span>بيانات محلية بالكامل</span></div><ArrowUpFromLine size={15} /></div><div className="version">سوق الضنية <span>v1.2.2</span></div></div>
   </aside></>
 }
 
@@ -206,7 +206,7 @@ function About() {
       <section className="about-section"><Sparkles size={25} /><h3>رؤية التطوير</h3><p>أن تكون التقنية قريبة من الناس، مفهومة لهم، ومساندة لرزقهم؛ أداة تختصر الوقت وتحفظ الحقوق وتساعد النشاط الصغير على التنظيم والنمو بثقة.</p></section>
     </div>
     <section className="developer-message"><div className="developer-name"><span>مبني على المشروع المفتوح المصدر</span><strong>Dukkan</strong><small>© Tarek Elomami — MIT License</small></div><blockquote>خُصص هذا الإصدار لسوق الضنية المركزي مع الحفاظ على إشعار الترخيص ونَسب المشروع الأصلي. البيانات محلية ولا يوجد أي ربط سحابي أو ربط بمتجر إلكتروني.</blockquote></section>
-    <footer className="about-footer"><b>سوق الضنية المركزي v1.2.1</b><span>Windows 10/11 • يعمل بلا إنترنت</span></footer>
+    <footer className="about-footer"><b>سوق الضنية المركزي v1.2.2</b><span>Windows 10/11 • يعمل بلا إنترنت</span></footer>
   </div>
 }
 
@@ -290,7 +290,7 @@ function SetupWizard() {
   }
   const currency = currencyDefinition(business.currency)
   return <div className="setup-page" dir="rtl" style={{ '--primary': business.primaryColor } as CSSProperties}>
-    <div className="setup-sidebar"><div className="setup-brand"><div className="brand-mark"><img src={logoUrl} alt="سوق الضنية المركزي" /></div><span>سوق الضنية المركزي</span></div><div className="setup-side-copy"><span>برنامج المحل المحلي</span><h2>كل شيء في مكان واحد.</h2><p>الكاشير والمخزون والمشتريات والديون والتقارير، بلا إنترنت.</p></div><div className="setup-quote"><span>“</span><p>مصمم للعمل على Windows 10 وحفظ البيانات محلياً على جهاز المحل.</p></div><div className="setup-side-footer">نسخة محلية وآمنة <span>•</span> v1.2.1</div></div>
+    <div className="setup-sidebar"><div className="setup-brand"><div className="brand-mark"><img src={logoUrl} alt="سوق الضنية المركزي" /></div><span>سوق الضنية المركزي</span></div><div className="setup-side-copy"><span>برنامج المحل المحلي</span><h2>كل شيء في مكان واحد.</h2><p>الكاشير والمخزون والمشتريات والديون والتقارير، بلا إنترنت.</p></div><div className="setup-quote"><span>“</span><p>مصمم للعمل على Windows 10 وحفظ البيانات محلياً على جهاز المحل.</p></div><div className="setup-side-footer">نسخة محلية وآمنة <span>•</span> v1.2.2</div></div>
     <div className="setup-content"><div className="setup-top"><span>إعداد النشاط</span><span>الخطوة {step} من 4</span></div><div className="setup-progress"><i style={{ width: `${step * 25}%` }} /></div><div className="setup-form">
       {step === 1 && <><span className="step-kicker">الخطوة الأولى</span><h1>بيانات سوق الضنية</h1><p>يمكنك قبول البيانات الجاهزة أو تعديلها.</p><div className="form-grid setup-grid"><label className="full">اسم النشاط<input autoFocus value={business.name} onChange={e => update('name', e.target.value)} /></label><label>نوع النشاط<select value={business.type} onChange={e => update('type', e.target.value)}><option>جملة وتجزئة</option><option>متجر تجزئة</option><option>خدمات</option></select></label><label>رقم الهاتف<input value={business.phone} onChange={e => update('phone', e.target.value)} /></label><label className="full">العنوان<input value={business.address} onChange={e => update('address', e.target.value)} /></label><label className="full">الرقم الضريبي <small className="optional">اختياري</small><input value={business.taxNumber} onChange={e => update('taxNumber', e.target.value)} /></label></div></>}
       {step === 2 && <><span className="step-kicker">الخطوة الثانية</span><h1>الهوية الخضراء</h1><p>اللون الأخضر جاهز ويمكنك إضافة شعار المحل.</p><div className="identity-preview"><div className="preview-sidebar"><div className="preview-logo">{business.logo ? <img src={business.logo} alt="شعار النشاط" /> : <img src={logoUrl} alt="سوق الضنية" />}</div><span>{business.name}</span><small>لوحة التحكم</small><small>نقطة البيع</small><small>المنتجات</small></div><div className="preview-content"><div className="preview-topline" /><h3>أهلاً بك 👋</h3><div className="preview-cards"><i /><i /><i /></div></div></div><div className="color-row"><label>اللون الرئيسي<div className="color-options">{['#15803d', '#166534', '#0f766e', '#2563eb'].map(c => <button type="button" key={c} style={{ background: c }} className={business.primaryColor === c ? 'picked' : ''} onClick={() => update('primaryColor', c)} />)}</div></label><LogoUpload value={business.logo} onChange={logo => update('logo', logo)} /></div></>}

@@ -1,6 +1,6 @@
 {
   "name": "souk-al-dannyeh-pos",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "private": true,
   "description": "برنامج سوق الضنية المركزي للكاشير والمحاسبة والمخزون بلا إنترنت",
   "type": "module",

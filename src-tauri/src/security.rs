@@ -258,10 +258,7 @@ pub fn authorize_transition(
     if identity.role != "cashier" || !active_user_is(new, identity) {
         return Err("الجلسة أو صلاحية المستخدم غير صالحة".into());
     }
-    if validate_cashier_sale(old, new, identity).is_ok()
-        || validate_cashier_customer(old, new).is_ok()
-        || validate_cashier_payment(old, new).is_ok()
-    {
+    if validate_cashier_sale(old, new, identity).is_ok() {
         return Ok(());
     }
     Err("لا يملك الكاشير صلاحية تنفيذ هذا التغيير أو أن بيانات العملية غير متناسقة".into())
@@ -300,62 +297,6 @@ pub fn authorize_first_admin(old: &Value, new: &Value) -> Result<(), String> {
         || text(new, "activeUser")? != text(&users[0], "name")?
     {
         return Err("يجب إنشاء حساب مدير نشط واحد".into());
-    }
-    Ok(())
-}
-
-fn validate_cashier_customer(old: &Value, new: &Value) -> Result<(), String> {
-    root_unchanged_except(old, new, &["customers", "activeUser"])?;
-    let old_rows = array(old, "customers")?;
-    let new_rows = array(new, "customers")?;
-    if new_rows.len() != old_rows.len() + 1 || new_rows[..old_rows.len()] != old_rows[..] {
-        return Err("إضافة العميل غير صالحة".into());
-    }
-    let customer = new_rows.last().unwrap();
-    if text(customer, "name")?.trim().is_empty()
-        || integer(customer, "balance", false)? != 0
-        || integer(customer, "purchases", false)? != 0
-    {
-        return Err("بيانات العميل الجديد غير صالحة".into());
-    }
-    Ok(())
-}
-
-fn validate_cashier_payment(old: &Value, new: &Value) -> Result<(), String> {
-    root_unchanged_except(old, new, &["payments", "customers", "activeUser"])?;
-    let old_payments = array(old, "payments")?;
-    let new_payments = array(new, "payments")?;
-    if new_payments.len() != old_payments.len() + 1 || new_payments[1..] != old_payments[..] {
-        return Err("دفعة العميل غير صالحة".into());
-    }
-    let payment = &new_payments[0];
-    if text(payment, "kind")? != "customer" {
-        return Err("الكاشير لا يملك صلاحية دفعات الموردين".into());
-    }
-    let amount = positive(payment, "amount")?;
-    let party = text(payment, "partyId")?;
-    let old_customers = array(old, "customers")?;
-    let new_customers = array(new, "customers")?;
-    if old_customers.len() != new_customers.len() {
-        return Err("بيانات العملاء غير متناسقة".into());
-    }
-    let mut found = false;
-    for (before, after) in old_customers.iter().zip(new_customers) {
-        if text(before, "id")? == party {
-            found = true;
-            let balance = integer(before, "balance", false)?;
-            if amount > balance
-                || !same_except(before, after, &["balance"])
-                || integer(after, "balance", false)? != balance - amount
-            {
-                return Err("رصيد العميل بعد الدفعة غير صحيح".into());
-            }
-        } else if before != after {
-            return Err("تم تعديل عميل غير مرتبط بالدفعة".into());
-        }
-    }
-    if !found {
-        return Err("العميل غير موجود".into());
     }
     Ok(())
 }
@@ -629,6 +570,28 @@ mod tests {
             role: "cashier".into(),
         };
         assert!(authorize_transition(&old, &new, &identity).is_err());
+    }
+
+    #[test]
+    fn rejects_cashier_customer_and_payment_changes() {
+        let old = base_state();
+        let identity = SessionIdentity {
+            id: "c".into(),
+            hash: "h".into(),
+            name: "كاشير".into(),
+            role: "cashier".into(),
+        };
+        let mut customer_change = old.clone();
+        customer_change["activeUser"] = "كاشير".into();
+        customer_change["customers"] =
+            serde_json::json!([{"id":"c1","name":"عميل","balance":0,"purchases":0}]);
+        assert!(authorize_transition(&old, &customer_change, &identity).is_err());
+
+        let mut payment_change = old.clone();
+        payment_change["activeUser"] = "كاشير".into();
+        payment_change["payments"] =
+            serde_json::json!([{"id":"p1","kind":"customer","partyId":"c1","amount":1}]);
+        assert!(authorize_transition(&old, &payment_change, &identity).is_err());
     }
 
     #[test]
